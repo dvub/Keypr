@@ -1,0 +1,17 @@
+D:\CODING\Important stuff\Programs\Programs\pwd_mgr_csharp\pwd_mgr_csharp\bin\Debug\net6.0\pwd_mgr_csharp.exe
+D:\CODING\Important stuff\Programs\Programs\pwd_mgr_csharp\pwd_mgr_csharp\bin\Debug\net6.0\pwd_mgr_csharp.deps.json
+D:\CODING\Important stuff\Programs\Programs\pwd_mgr_csharp\pwd_mgr_csharp\bin\Debug\net6.0\pwd_mgr_csharp.runtimeconfig.json
+D:\CODING\Important stuff\Programs\Programs\pwd_mgr_csharp\pwd_mgr_csharp\bin\Debug\net6.0\pwd_mgr_csharp.dll
+D:\CODING\Important stuff\Programs\Programs\pwd_mgr_csharp\pwd_mgr_csharp\bin\Debug\net6.0\pwd_mgr_csharp.pdb
+D:\CODING\Important stuff\Programs\Programs\pwd_mgr_csharp\pwd_mgr_csharp\obj\Debug\net6.0\pwd_mgr_csharp.csproj.AssemblyReference.cache
+D:\CODING\Important stuff\Programs\Programs\pwd_mgr_csharp\pwd_mgr_csharp\obj\Debug\net6.0\pwd_mgr_csharp.GeneratedMSBuildEditorConfig.editorconfig
+D:\CODING\Important stuff\Programs\Programs\pwd_mgr_csharp\pwd_mgr_csharp\obj\Debug\net6.0\pwd_mgr_csharp.AssemblyInfoInputs.cache
+D:\CODING\Important stuff\Programs\Programs\pwd_mgr_csharp\pwd_mgr_csharp\obj\Debug\net6.0\pwd_mgr_csharp.AssemblyInfo.cs
+D:\CODING\Important stuff\Programs\Programs\pwd_mgr_csharp\pwd_mgr_csharp\obj\Debug\net6.0\pwd_mgr_csharp.csproj.CoreCompileInputs.cache
+D:\CODING\Important stuff\Programs\Programs\pwd_mgr_csharp\pwd_mgr_csharp\obj\Debug\net6.0\pwd_mgr_csharp.dll
+D:\CODING\Important stuff\Programs\Programs\pwd_mgr_csharp\pwd_mgr_csharp\obj\Debug\net6.0\refint\pwd_mgr_csharp.dll
+D:\CODING\Important stuff\Programs\Programs\pwd_mgr_csharp\pwd_mgr_csharp\obj\Debug\net6.0\pwd_mgr_csharp.pdb
+D:\CODING\Important stuff\Programs\Programs\pwd_mgr_csharp\pwd_mgr_csharp\obj\Debug\net6.0\pwd_mgr_csharp.genruntimeconfig.cache
+D:\CODING\Important stuff\Programs\Programs\pwd_mgr_csharp\pwd_mgr_csharp\obj\Debug\net6.0\ref\pwd_mgr_csharp.dll
+D:\CODING\Important stuff\Programs\Programs\pwd_mgr_csharp\pwd_mgr_csharp\bin\Debug\net6.0\Figgle.dll
+D:\CODING\Important stuff\Programs\Programs\pwd_mgr_csharp\pwd_mgr_csharp\obj\Debug\net6.0\pwd_mgr_csharp.csproj.CopyComplete
