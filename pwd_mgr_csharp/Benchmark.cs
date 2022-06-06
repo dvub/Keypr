@@ -2,39 +2,27 @@
 
 namespace pwd_mgr_csharp
 {
-    public class Benchmark
+    //Class to represent a benchmark of a given executed method
+    //Takes a delegate /func, as well as the delegate's corresponding params
+    //Returns a Benchmark which contains the return value of type T,
+    //As well as a double which measures the time in milliseconds of execution
+    public class Benchmark<T>
     {
-        public Benchmark()
-        {
+        //only use getter = field becomes readonly
+        public T returnValue { get; }
+        public double elapsed { get; } // most of the time double will be cast to a float but wtv
 
-        }
-        // SOLUTION FOUND HERE:
+        // original source:
         // https://stackoverflow.com/questions/22834120/func-with-unknown-number-of-parameters
-        public static BenchmarkValue<T> MeasureMethod<T>(Delegate f, params object[] args)
+        public Benchmark(Delegate f, params object[] args)
         {
             Stopwatch sw = Stopwatch.StartNew();
-
-            var result = f.Method.Invoke(null, args); //invoke is significantly faster than dynamic
-            //var result = f.DynamicInvoke(args);
-
+            T result = (T)f.Method.Invoke(null, args);
+            //invoke is significantly faster than dynamic
+            //var result = f.DynamicInvoke(args); //SLOW AF!
             sw.Stop();
-
-            T val = (T)Convert.ChangeType(result, typeof(T));
-            var bmv = new BenchmarkValue<T>(val, sw.Elapsed);
-
-            return bmv;
-        }
-    }
-    public class BenchmarkValue<T>
-    {
-        public T returnValue { get; }
-
-        public TimeSpan elapsed { get; }
-
-        public BenchmarkValue(T returnValue, TimeSpan elapsed)
-        {
-            this.returnValue = returnValue;
-            this.elapsed = elapsed;
+            this.returnValue = result;
+            this.elapsed = sw.Elapsed.TotalMilliseconds;
         }
     }
 }

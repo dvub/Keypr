@@ -3,29 +3,21 @@ using System.Security.Cryptography;
 using System.Text;
 using Figgle;
 using System.Text.Json;
-
-Console.WriteLine(FiggleFonts.Slant.Render("KeyPr") + "by dvub");
+using System.Diagnostics;
+//a small note: encoding/decoding is UTF8 as JSON spec is UTF8
+    // TODO: 
+    // encrypt username / email - DONE
+    // hidden password input - DONE
+    // make sure password names are unique
+    // time operations with delegates and callbacks - CURRENT
+    // make sure that app doesn't crash when user searches pwds
+    // add notes section to password
+    // ability to edit pwds
+    // make console look good ig - color, spacing, etc. - CURRENT
+    // GENERATE RANDOM PASSWORDS!! - DONE
+    Console.WriteLine(FiggleFonts.Slant.Render("KeyPr") + "by dvub");
 Console.WriteLine();
 Console.WriteLine("Checking if data file exists...");
-
-Func<int, byte[]> f = GenerateRandomBytes;
-
-
-Func<Aes, byte[], byte[], string, byte[]> encrypt = Encrypt;
-
-Func<Aes, byte[], string, byte[]> decrypt = Decrypt;
-//a small note: encoding/decoding is UTF8 as JSON spec is UTF8
-// thanks!
-
-// TODO: 
-// encrypt username / email - DONE
-// hidden password input - DONE
-// make sure password names are unique
-// time operations with delegates and callbacks
-// make sure that app doesn't crash when user searches pwds
-// add notes section to password
-// make console look good ig - color, spacing, etc.
-// GENERATE RANDOM PASSWORDS!! - DONE
 string key = "";
 // LOGIN TO APPLICATION //
 if (File.Exists("data.json")) // if the user already has data file, then the user just has to log in
@@ -52,20 +44,18 @@ if (File.Exists("data.json")) // if the user already has data file, then the use
         } 
         else
         {
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine("Incorrect Password. Try again:");
-            Console.ForegroundColor = ConsoleColor.White;
+            ConsoleHelper.ColorWrite("Incorrect Password:", ConsoleColor.Red);
         }
-
     }
 }
 else //if the user doesn't have a data file, then we need to make one and set up a password
 {
     Console.WriteLine("No data file was found.");
     Console.WriteLine("Enter username"); //setup a username for welcoming the user later
-    string user = Console.ReadLine();
+    string? user = Console.ReadLine();
     while (string.IsNullOrEmpty(user))
         user = Console.ReadLine();
+
     Password master = new Password("master", Encoding.UTF8.GetBytes(user), GetHash(ConsoleHelper.confirmedPwd()));
     List<Password> pwds = new List<Password>();
     pwds.Add(master);
@@ -92,13 +82,13 @@ while (input != options.Length)
 
                 Console.WriteLine("Enter name of website/application:"); //get some user input
 
-                string name = Console.ReadLine();
+                string? name = Console.ReadLine();
                 while (string.IsNullOrEmpty(name))
                     name = Console.ReadLine();
 
                 Console.WriteLine("Enter username:");
 
-                string user = Console.ReadLine();
+                string? user = Console.ReadLine();
                 while (string.IsNullOrEmpty(user))
                     user = Console.ReadLine();
 
@@ -115,9 +105,10 @@ while (input != options.Length)
                     switch (passInput)
                     {
                         case 1:
-                            string base64pass = Convert.ToBase64String(GenerateRandomBytes(16)); //generates a 16-byte-long password, pretty secure!
-                            newPass = Encoding.UTF8.GetBytes(base64pass);
-                            Console.WriteLine($"Generated a new Password! The password is: {base64pass}");
+                            BaseConverter b = new BaseConverter();
+                            string basePass = b.EncodeBytes(GenerateRandomBytes(16)); //generates a 16-byte-long password, pretty secure!
+                            newPass = Encoding.UTF8.GetBytes(basePass);
+                            Console.WriteLine($"Generated a new Password! The password is: {basePass}");
                             prompting = false;
                             break;
                         case 2:
@@ -131,10 +122,14 @@ while (input != options.Length)
 
                 try 
                 {
-                    BenchmarkValue<byte[]> encryptPass = Benchmark.MeasureMethod<byte[]>(encrypt, aes, newPass, aes.IV, key);
-                    BenchmarkValue<byte[]> encryptUser = Benchmark.MeasureMethod<byte[]>(encrypt, aes, userBytes, aes.IV, key);
+                    Benchmark<byte[]> encryptPass = new Benchmark<byte[]>(Encrypt, aes, newPass, aes.IV, key);
+                    Benchmark<byte[]> encryptUser = new Benchmark<byte[]>(Encrypt, aes, userBytes, aes.IV, key);
                     byte[] total = encryptPass.returnValue;
                     byte[] totalUser = encryptUser.returnValue;
+
+                    float time = (float)(encryptPass.elapsed + encryptUser.elapsed);
+                    ConsoleHelper.ColorWrite($"Elapsed {time} ms", ConsoleColor.Yellow);
+
 
                     Password password = new Password(name, totalUser, total);
                     pwds.Add(password);
@@ -164,14 +159,13 @@ while (input != options.Length)
 
                 try
                 {
-                    BenchmarkValue<byte[]> decryptOp = Benchmark.MeasureMethod<byte[]>(decrypt, aes, password.pwd, key);
-                    BenchmarkValue<byte[]> decryptUserOp = Benchmark.MeasureMethod<byte[]>(decrypt, aes, password.user, key);
-
+                    Benchmark<byte[]> decryptOp = new Benchmark<byte[]>(Decrypt, aes, password.pwd, key);
+                    Benchmark<byte[]> decryptUserOp = new Benchmark<byte[]>(Decrypt, aes, password.user, key);
                     byte[] decryptedPwd = decryptOp.returnValue;
                     byte[] decryptedUser = decryptUserOp.returnValue;
 
 
-                    double time = decryptOp.elapsed.TotalMilliseconds + decryptUserOp.elapsed.TotalMilliseconds;
+                    float time = (float)(decryptOp.elapsed + decryptUserOp.elapsed);
                     ConsoleHelper.ColorWrite($"Elapsed {time} ms", ConsoleColor.Yellow);
 
 
@@ -213,7 +207,6 @@ static byte[] Encrypt(Aes aes, byte[] plain, byte[] iv, string key)
 {
     byte[] salt = GenerateRandomBytes(8);
 
-
     aes.Key = CreateKey(key, salt);
     aes.GenerateIV();
     byte[] encrypted = aes.EncryptCbc(plain, aes.IV, PaddingMode.PKCS7); //encrypt password from plaintext
@@ -236,8 +229,8 @@ static byte[] Decrypt(Aes aes, byte[] bytes, string key)
     byte[] decryptedBytes = aes.DecryptCbc(encrypted, iv, PaddingMode.PKCS7); //decrypt using PKCS7 padding
 
     return decryptedBytes;
-}
 
+}
 //https://www.techiedelight.com/concatenate-byte-arrays-csharp/
 static byte[] Combine(byte[] first, byte[] second)
 {
@@ -283,22 +276,3 @@ static byte[] CreateKey(string pwd, byte[] salt)
 
 }
  
-
-//CLASSES
-class Password
-{
-    public string name { get; set; }
-    public byte[] user { get; set; }
-    public byte[] pwd { get; set; }
-    public Password(string _name, byte[] _user, byte[] _pwd)
-    {
-        name = _name; 
-        user = _user;
-        pwd = _pwd;
-    }
-    public Password()
-    {
-
-    }
-}
-

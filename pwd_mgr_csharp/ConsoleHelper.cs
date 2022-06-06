@@ -11,10 +11,6 @@ namespace pwd_mgr_csharp
 
     public class ConsoleHelper 
     {
-        public ConsoleHelper()
-        {
-
-        }
         public static int promptOptions(string prompt, string[] options)
         {
             Console.WriteLine(prompt);
@@ -22,7 +18,7 @@ namespace pwd_mgr_csharp
             {
                 Console.WriteLine($"{i + 1}. {options[i]}");
             }
-            string input = Console.ReadLine();
+            string? input = Console.ReadLine();
             while (string.IsNullOrEmpty(input))
                 input = Console.ReadLine();
             int parsed = 0;
@@ -62,7 +58,7 @@ namespace pwd_mgr_csharp
 
         public static string hiddenPassword()
         {
-            string password = null;
+            string password = "";
             while (true)
             {
                 ConsoleKeyInfo key = Console.ReadKey(true);
