@@ -3,19 +3,20 @@ using System.Security.Cryptography;
 using System.Text;
 using Figgle;
 using System.Text.Json;
-using System.Diagnostics;
-//a small note: encoding/decoding is UTF8 as JSON spec is UTF8
+    //a small note: encoding/decoding is UTF8 as JSON spec is UTF8
+
     // TODO: 
     // encrypt username / email - DONE
     // hidden password input - DONE
     // make sure password names are unique
-    // time operations with delegates and callbacks - CURRENT
+    // time operations with delegates and callbacks - DONE
     // make sure that app doesn't crash when user searches pwds
     // add notes section to password
     // ability to edit pwds
     // make console look good ig - color, spacing, etc. - CURRENT
     // GENERATE RANDOM PASSWORDS!! - DONE
-    Console.WriteLine(FiggleFonts.Slant.Render("KeyPr") + "by dvub");
+    // user can generate password of n length - DONE
+Console.WriteLine(FiggleFonts.Slant.Render("KeyPr"));
 Console.WriteLine();
 Console.WriteLine("Checking if data file exists...");
 string key = "";
@@ -35,7 +36,7 @@ if (File.Exists("data.json")) // if the user already has data file, then the use
 
 
         //by using a hash for the master password, the plaintext can also serve as a key for encryption
-        if (masterPwd.pwd.SequenceEqual<byte>(hashed))
+        if (masterPwd.pwd.SequenceEqual(hashed))
         {
             string username = Encoding.UTF8.GetString(masterPwd.user);
             Console.WriteLine($"Welcome, {username}!");
@@ -105,8 +106,24 @@ while (input != options.Length)
                     switch (passInput)
                     {
                         case 1:
-                            BaseConverter b = new BaseConverter();
-                            string basePass = b.EncodeBytes(GenerateRandomBytes(16)); //generates a 16-byte-long password, pretty secure!
+                            int len = 0;
+                            Console.WriteLine("Enter password length:");
+                            string passLength = Console.ReadLine();
+                            while (string.IsNullOrEmpty(passLength))
+                                passLength = Console.ReadLine();
+                            while (true)
+                            {
+                                try
+                                {
+                                    len = int.Parse(passLength);
+                                    break;
+                                } 
+                                catch
+                                {
+                                    Console.WriteLine("Input a valid number:");
+                                }
+                            }
+                            string basePass = BaseConverter.EncodeBytes(GenerateRandomBytes(len)); //generates a 16-byte-long password, pretty secure!
                             newPass = Encoding.UTF8.GetBytes(basePass);
                             Console.WriteLine($"Generated a new Password! The password is: {basePass}");
                             prompting = false;
@@ -115,10 +132,19 @@ while (input != options.Length)
                             newPass = Encoding.UTF8.GetBytes(ConsoleHelper.confirmedPwd());
                             prompting = false;
                             break;
+                        case 3:
+                            prompting = false;
+                            break;
                     }
                 }
                 //end of user input, lets encrypt
                 byte[] userBytes = Encoding.UTF8.GetBytes(user);
+
+
+                if (newPass.Length == 0)
+                {
+                    break;
+                }
 
                 try 
                 {
@@ -187,6 +213,12 @@ while (input != options.Length)
             Environment.Exit(0);
             break;
     }
+}
+
+static string GeneratePassword(int length)
+{
+    string pass = BaseConverter.EncodeBytes(GenerateRandomBytes(length));
+    return pass.Substring(0, length);
 }
 
 

@@ -6,34 +6,38 @@ using System.Threading.Tasks;
 
 namespace pwd_mgr_csharp
 {
+
+
+    //Base94 converter class
+
     // https://stackoverflow.com/questions/33729397/how-to-convert-a-floating-point-number-to-base36-in-c-sharp-in-the-same-way-as-j
-    public class BaseConverter
+    public static class BaseConverter
     {
-        private readonly string Chars = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ+/"; //these are the characters in base 64 encoding
-        private string ExtraChars = "!@#$%^&*?.-_="; //feel free to add more to this
-        // private int nBase = 76;
-       
-
-        private string Encode(int nIn, int nBase = 77)
-        {
-            string total = Chars + ExtraChars;
-            if (nBase > total.Length)
-            {
-                throw new ArgumentException($"Encoding base exceeded {total.Length}.");
-            }
-            int n = nIn / nBase;
-            char c = total[nIn % nBase];
-            return n > 0 ? Encode(n, nBase) + c : c.ToString();
-        }
-
-        public string EncodeBytes(byte[] bytes, int nBase = 77)
+        private static string Letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        private static string Numbers = "0123456789";
+        private static string Symbols = "!@#$%^&*_+-=?/.,";
+        public static string EncodeBytes(byte[] bytes)
         {
             string encoded = "";
             foreach (byte b in bytes)
             {
-                encoded += Encode(b, nBase);
+                encoded += Encode(b);
             }
             return encoded;
+        }
+        public static string Encode(int value)
+        {
+            string chars = Letters + Numbers + Symbols;
+            int nBase = chars.Length;
+            string result = "";
+
+            while (value > 0)
+            {
+                result = chars [value % nBase] + result;
+                value /= nBase;
+            }
+
+            return result;
         }
     }
 }
