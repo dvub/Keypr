@@ -6,6 +6,7 @@ using System.Text.Json;
     //a small note: encoding/decoding is UTF8 as JSON spec is UTF8
 
     // TODO: 
+    // measure all operations instead of just some
     // encrypt username / email - DONE
     // hidden password input - DONE
     // make sure password names are unique
@@ -13,13 +14,15 @@ using System.Text.Json;
     // make sure that app doesn't crash when user searches pwds
     // add notes section to password
     // ability to edit pwds
-    // make console look good ig - color, spacing, etc. - CURRENT
+    // make console look good - color, spacing, etc. - CURRENT
     // GENERATE RANDOM PASSWORDS!! - DONE
     // user can generate password of n length - DONE
 Console.WriteLine(FiggleFonts.Slant.Render("KeyPr"));
 Console.WriteLine();
 Console.WriteLine("Checking if data file exists...");
 string key = "";
+
+
 // LOGIN TO APPLICATION //
 if (File.Exists("data.json")) // if the user already has data file, then the user just has to log in
 {
@@ -32,7 +35,7 @@ if (File.Exists("data.json")) // if the user already has data file, then the use
     while (!loggedIn)
     {
         string pass = ConsoleHelper.hiddenPassword();
-        byte[] hashed = GetHash(pass);
+        byte[] hashed = CryptoHelper.GetHash(pass);
 
 
         //by using a hash for the master password, the plaintext can also serve as a key for encryption
@@ -57,7 +60,7 @@ else //if the user doesn't have a data file, then we need to make one and set up
     while (string.IsNullOrEmpty(user))
         user = Console.ReadLine();
 
-    Password master = new Password("master", Encoding.UTF8.GetBytes(user), GetHash(ConsoleHelper.confirmedPwd()));
+    Password master = new Password("master", Encoding.UTF8.GetBytes(user), CryptoHelper.GetHash(ConsoleHelper.confirmedPwd()));
     List<Password> pwds = new List<Password>();
     pwds.Add(master);
     writePwds(pwds, "data.json");
@@ -69,6 +72,7 @@ else //if the user doesn't have a data file, then we need to make one and set up
 // ONCE USER IS LOGGED IN: //
 int input = 0;
 string[] options = new string[3] { "Add new password", "View Password", "Exit", };
+
 while (input != options.Length)
 {
     input = ConsoleHelper.promptOptions("What would you like to do?", options); //prompt the user with options for the application
@@ -123,7 +127,7 @@ while (input != options.Length)
                                     Console.WriteLine("Input a valid number:");
                                 }
                             }
-                            string basePass = BaseConverter.EncodeBytes(GenerateRandomBytes(len)); //generates a 16-byte-long password, pretty secure!
+                            string basePass = CryptoHelper.GeneratePassword(len); //generates a 16-byte-long password, pretty secure!
                             newPass = Encoding.UTF8.GetBytes(basePass);
                             Console.WriteLine($"Generated a new Password! The password is: {basePass}");
                             prompting = false;
@@ -148,8 +152,8 @@ while (input != options.Length)
 
                 try 
                 {
-                    Benchmark<byte[]> encryptPass = new Benchmark<byte[]>(Encrypt, aes, newPass, aes.IV, key);
-                    Benchmark<byte[]> encryptUser = new Benchmark<byte[]>(Encrypt, aes, userBytes, aes.IV, key);
+                    Benchmark<byte[]> encryptPass = new Benchmark<byte[]>(CryptoHelper.Encrypt, aes, newPass, aes.IV, key);
+                    Benchmark<byte[]> encryptUser = new Benchmark<byte[]>(CryptoHelper.Encrypt, aes, userBytes, aes.IV, key);
                     byte[] total = encryptPass.returnValue;
                     byte[] totalUser = encryptUser.returnValue;
 
@@ -185,8 +189,8 @@ while (input != options.Length)
 
                 try
                 {
-                    Benchmark<byte[]> decryptOp = new Benchmark<byte[]>(Decrypt, aes, password.pwd, key);
-                    Benchmark<byte[]> decryptUserOp = new Benchmark<byte[]>(Decrypt, aes, password.user, key);
+                    Benchmark<byte[]> decryptOp = new Benchmark<byte[]>(CryptoHelper.Decrypt, aes, password.pwd, key);
+                    Benchmark<byte[]> decryptUserOp = new Benchmark<byte[]>(CryptoHelper.Decrypt, aes, password.user, key);
                     byte[] decryptedPwd = decryptOp.returnValue;
                     byte[] decryptedUser = decryptUserOp.returnValue;
 
@@ -215,63 +219,6 @@ while (input != options.Length)
     }
 }
 
-static string GeneratePassword(int length)
-{
-    string pass = BaseConverter.EncodeBytes(GenerateRandomBytes(length));
-    return pass.Substring(0, length);
-}
-
-
-
-static byte[] GenerateRandomBytes(int length)
-{
-    using (RandomNumberGenerator rng = RandomNumberGenerator.Create())
-    {
-        byte[] bytes = new byte[length];
-        rng.GetBytes(bytes, 0, length);
-        return bytes;
-    }
-}
-
-
-
-static byte[] Encrypt(Aes aes, byte[] plain, byte[] iv, string key)
-{
-    byte[] salt = GenerateRandomBytes(8);
-
-    aes.Key = CreateKey(key, salt);
-    aes.GenerateIV();
-    byte[] encrypted = aes.EncryptCbc(plain, aes.IV, PaddingMode.PKCS7); //encrypt password from plaintext
-    byte[] first = Combine(aes.IV, encrypted); // combine
-    byte[] second = Combine(salt, first);
-    return second;
-}
-
-static byte[] Decrypt(Aes aes, byte[] bytes, string key)
-{
-    byte[] salt = bytes.Take(8).ToArray(); //get salt with first 8 bytes
-
-    aes.Key = CreateKey(key, salt); //create a key
-
-
-    byte[] iv = bytes.Skip(8).Take(16).ToArray(); //16 bytes AFTER salt
-
-    byte[] encrypted = bytes.Skip(24).Take(bytes.Length - 24).ToArray(); //the rest of the ciphertext
-
-    byte[] decryptedBytes = aes.DecryptCbc(encrypted, iv, PaddingMode.PKCS7); //decrypt using PKCS7 padding
-
-    return decryptedBytes;
-
-}
-//https://www.techiedelight.com/concatenate-byte-arrays-csharp/
-static byte[] Combine(byte[] first, byte[] second)
-{
-    byte[] result = new byte[first.Length + second.Length];
-    Buffer.BlockCopy(first, 0, result, 0, first.Length); //copy  the first array into result array
-    Buffer.BlockCopy(second, 0, result, first.Length, second.Length); //copy second array into result array, but starting at first.Length
-    return result;
-
-}
 
 static List<Password> readPwds(string file)
 {
@@ -289,22 +236,5 @@ static void writePwds(List<Password> allPwds, string file)
     });
 
     File.WriteAllText(file, json);
-}
-
-static byte[] GetHash(string inputString)
-{
-    using (HashAlgorithm algorithm = SHA256.Create())
-    {
-        return algorithm.ComputeHash(Encoding.UTF8.GetBytes(inputString));
-    }
-}
-
-static byte[] CreateKey(string pwd, byte[] salt)
-{
-
-    const int Iterations = 300;
-    var keyGenerator = new Rfc2898DeriveBytes(pwd, salt, Iterations);
-    return keyGenerator.GetBytes(32);
-
 }
  

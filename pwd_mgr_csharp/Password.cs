@@ -6,7 +6,8 @@ using System.Threading.Tasks;
 
 namespace pwd_mgr_csharp
 {
-   public class Password
+
+    public class Password
     {
         public string name { get; set; }
         public byte[] user { get; set; }
@@ -22,5 +23,4 @@ namespace pwd_mgr_csharp
 
         }
     }
-
 }
