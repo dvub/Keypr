@@ -9,18 +9,10 @@ namespace pwd_mgr_csharp
 
     public class Password
     {
-        public string name { get; set; }
-        public byte[] user { get; set; }
-        public byte[] pwd { get; set; }
-        public Password(string name, byte[] user, byte[] pwd)
-        {
-            this.name = name;
-            this.user = user;
-            this.pwd = pwd;
-        }
-        public Password()
-        {
-
-        }
+        public int Id { get; set; } //Primary key for DB, although not really necessary
+        public string Name { get; set; }
+        public byte[] Username { get; set; }
+        public byte[] Pass { get; set; }
+        public byte[]? Notes { get; set; }
     }
 }

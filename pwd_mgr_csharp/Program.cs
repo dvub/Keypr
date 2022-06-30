@@ -2,80 +2,101 @@
 using System.Security.Cryptography;
 using System.Text;
 using Figgle;
-using System.Text.Json;
-    //a small note: encoding/decoding is UTF8 as JSON spec is UTF8
+using System.Linq;
+using System.Diagnostics;
 
-    // TODO: 
-    // measure all operations instead of just some
-    // encrypt username / email - DONE
-    // hidden password input - DONE
-    // make sure password names are unique
-    // time operations with delegates and callbacks - DONE
-    // make sure that app doesn't crash when user searches pwds
-    // add notes section to password
-    // ability to edit pwds
-    // make console look good - color, spacing, etc. - CURRENT
-    // GENERATE RANDOM PASSWORDS!! - DONE
-    // user can generate password of n length - DONE
+//EF Core:
+// * PMC: Add-Migration [migration name]
+// * Update-Database
+
+
+//a small note: encoding/decoding is UTF8 as JSON spec is UTF8
+
+//color coding:
+// green = good response
+// magenta = information ?
+// red = bad
+// Blue = information prompt
+
+
+
+// TODO: 
+// ***** REWRITE WITH SQLITE ***** - READ PASSWORDS
+// measure all operations instead of just some
+// boolean prompt - DONE
+// cancel a new password creation
+// all user input to lower case -
+// make sure password names are unique
+// make sure that app doesn't crash when user searches pwds - DONE
+// add notes section to password - CURRENT
+// ability to edit pwds 
+// make console look good - color, spacing, etc. - DONE for now
+// regenerate passwords - DONE
+// implement class exceptions
+
+
 Console.WriteLine(FiggleFonts.Slant.Render("KeyPr"));
 Console.WriteLine();
-Console.WriteLine("Checking if data file exists...");
-string key = "";
+Stopwatch sw = Stopwatch.StartNew();
+using var db = new PwdsContext(); // constructor with 0 args
 
+Console.WriteLine($"Database path: {db.DbPath}");
+// initial query to get the master password - if one exists
+Password? master = db.Passwords.FirstOrDefault(x => x.Name == ".MASTER");
+
+
+if (master == null)
+{
+    Console.WriteLine("No master password exists.");
+    Console.WriteLine("Enter username"); //setup a username for welcoming the user later
+    string user = ConsoleHelper.ReadNotNull();
+    byte[] userBytes = Encoding.UTF8.GetBytes(user);
+    db.Add(new Password { Name = ".MASTER", Pass = CryptoHelper.GetHash(ConsoleHelper.ConfirmedPwd()), Username = userBytes });
+    db.SaveChanges();
+
+    Console.WriteLine("Successfully created a new master password! Restart the application to log in.");
+    Environment.Exit(0);
+}
 
 // LOGIN TO APPLICATION //
-if (File.Exists("data.json")) // if the user already has data file, then the user just has to log in
-{
-    bool loggedIn = false;
-    Console.WriteLine("Found a data file!");
-    Console.WriteLine("Please Enter Master Password:");
+string key = "";
+bool loggedIn = false;
 
-    List<Password> pwds = readPwds("data.json");
-    Password masterPwd = pwds[0];
-    while (!loggedIn)
+Console.WriteLine();
+ConsoleHelper.ColorWrite("Please Enter Master Password:", ConsoleHelper.promptColor);
+
+int attempts = 0; //counting the attempts of logging in lol
+while (!loggedIn)
+{
+    string pass = ConsoleHelper.HiddenPassword();
+    byte[] hashed = CryptoHelper.GetHash(pass);
+
+
+    //by using a hash for the master password, the plaintext can also serve as a key for encryption
+    if (master.Pass.SequenceEqual(hashed))
     {
-        string pass = ConsoleHelper.hiddenPassword();
-        byte[] hashed = CryptoHelper.GetHash(pass);
-
-
-        //by using a hash for the master password, the plaintext can also serve as a key for encryption
-        if (masterPwd.pwd.SequenceEqual(hashed))
-        {
-            string username = Encoding.UTF8.GetString(masterPwd.user);
-            Console.WriteLine($"Welcome, {username}!");
-            loggedIn = true;
-            key = pass;
-        } 
-        else
-        {
-            ConsoleHelper.ColorWrite("Incorrect Password:", ConsoleColor.Red);
-        }
+        string username = Encoding.UTF8.GetString(master.Username);
+        Console.WriteLine();
+        ConsoleHelper.ColorWrite($"Welcome, {username}!", ConsoleColor.Green);
+        Console.WriteLine();
+        loggedIn = true;
+        key = pass;
+    } 
+    else
+    {
+        attempts++;
+        ConsoleHelper.ColorWrite($"Incorrect Password. Try again: ({attempts})", ConsoleColor.Red);
+        // Thread.Sleep(1000); maybe add a delay to prevent brute force..?
     }
-}
-else //if the user doesn't have a data file, then we need to make one and set up a password
-{
-    Console.WriteLine("No data file was found.");
-    Console.WriteLine("Enter username"); //setup a username for welcoming the user later
-    string? user = Console.ReadLine();
-    while (string.IsNullOrEmpty(user))
-        user = Console.ReadLine();
-
-    Password master = new Password("master", Encoding.UTF8.GetBytes(user), CryptoHelper.GetHash(ConsoleHelper.confirmedPwd()));
-    List<Password> pwds = new List<Password>();
-    pwds.Add(master);
-    writePwds(pwds, "data.json");
-
-    Console.WriteLine("Successfully created a new data file and master password! Restart the application to log in.");
-    Environment.Exit(0);
 }
 
 // ONCE USER IS LOGGED IN: //
 int input = 0;
 string[] options = new string[3] { "Add new password", "View Password", "Exit", };
-
 while (input != options.Length)
 {
-    input = ConsoleHelper.promptOptions("What would you like to do?", options); //prompt the user with options for the application
+
+    input = ConsoleHelper.PromptOptions("What would you like to do?", options); //prompt the user with options for the application
     switch (input)
     {
         
@@ -83,38 +104,31 @@ while (input != options.Length)
             
             using (Aes aes = Aes.Create())
             {
-                List<Password> pwds = readPwds("data.json"); //read file
 
-                Console.WriteLine("Enter name of website/application:"); //get some user input
+                ConsoleHelper.ColorWrite("Enter name of website/application:", ConsoleHelper.promptColor); //get some user input
+                string name = ConsoleHelper.ReadNotNull();
 
-                string? name = Console.ReadLine();
-                while (string.IsNullOrEmpty(name))
-                    name = Console.ReadLine();
+                ConsoleHelper.ColorWrite("Enter username:", ConsoleHelper.promptColor);
+                string user = ConsoleHelper.ReadNotNull();
 
-                Console.WriteLine("Enter username:");
-
-                string? user = Console.ReadLine();
-                while (string.IsNullOrEmpty(user))
-                    user = Console.ReadLine();
-
+                ConsoleHelper.ColorWrite("Add Notes:", ConsoleHelper.promptColor);
+                string? notes = Console.ReadLine();
 
                 string[] passOpts = new string[3] { "Generate Random (Recommended)", "Create one myself", "Cancel" };
                 int passInput = 0;
-                byte[] newPass = new byte[] { };
+                byte[] passBytes = new byte[] { };
                 bool prompting = true;
 
-                // allow the user to randomly generate a password
+                // allow the user to randomly generate a password - or create one themself
                 while (prompting)
                 {
-                    passInput = ConsoleHelper.promptOptions("How would you like to create a password?", passOpts);
+                    passInput = ConsoleHelper.PromptOptions("How would you like to create a password?", passOpts);
                     switch (passInput)
                     {
                         case 1:
                             int len = 0;
-                            Console.WriteLine("Enter password length:");
-                            string passLength = Console.ReadLine();
-                            while (string.IsNullOrEmpty(passLength))
-                                passLength = Console.ReadLine();
+                            ConsoleHelper.ColorWrite("Enter password length:", ConsoleHelper.promptColor);
+                            string passLength = ConsoleHelper.ReadNotNull();
                             while (true)
                             {
                                 try
@@ -124,16 +138,29 @@ while (input != options.Length)
                                 } 
                                 catch
                                 {
-                                    Console.WriteLine("Input a valid number:");
+                                    ConsoleHelper.ColorWrite("Input a valid number:", ConsoleColor.Red);
                                 }
                             }
-                            string basePass = CryptoHelper.GeneratePassword(len); //generates a 16-byte-long password, pretty secure!
-                            newPass = Encoding.UTF8.GetBytes(basePass);
-                            Console.WriteLine($"Generated a new Password! The password is: {basePass}");
+
+                            bool regen = true;
+                            while (regen)
+                            {
+                                string basePass = CryptoHelper.GeneratePassword(len);
+                                passBytes = Encoding.UTF8.GetBytes(basePass);
+                                Console.WriteLine();
+                                ConsoleHelper.ColorWrite($"Generated a new Password!", ConsoleColor.Green);
+                                Console.WriteLine();
+                                Console.WriteLine("The password is: ");
+                                ConsoleHelper.ColorWrite(basePass, ConsoleColor.Magenta);
+                                Console.WriteLine();
+                                ConsoleHelper.ColorWrite("Would you like to regenerate the password? (y/n)", ConsoleHelper.promptColor);
+                                regen = ConsoleHelper.BoolPrompt();
+                            }
+
                             prompting = false;
                             break;
                         case 2:
-                            newPass = Encoding.UTF8.GetBytes(ConsoleHelper.confirmedPwd());
+                            passBytes = Encoding.UTF8.GetBytes(ConsoleHelper.ConfirmedPwd());
                             prompting = false;
                             break;
                         case 3:
@@ -143,67 +170,83 @@ while (input != options.Length)
                 }
                 //end of user input, lets encrypt
                 byte[] userBytes = Encoding.UTF8.GetBytes(user);
+                byte[] notesBytes = Encoding.UTF8.GetBytes(notes);
 
-
-                if (newPass.Length == 0)
+                if (passBytes.Length == 0)
                 {
                     break;
                 }
-
                 try 
                 {
-                    Benchmark<byte[]> encryptPass = new Benchmark<byte[]>(CryptoHelper.Encrypt, aes, newPass, aes.IV, key);
+                    // benchmarking and getting data
+                    Benchmark<byte[]> encryptPass = new Benchmark<byte[]>(CryptoHelper.Encrypt, aes, passBytes, aes.IV, key);
                     Benchmark<byte[]> encryptUser = new Benchmark<byte[]>(CryptoHelper.Encrypt, aes, userBytes, aes.IV, key);
-                    byte[] total = encryptPass.returnValue;
-                    byte[] totalUser = encryptUser.returnValue;
+                    Benchmark<byte[]> encryptNotes = new Benchmark<byte[]>(CryptoHelper.Encrypt, aes, notesBytes, aes.IV, key);
 
-                    float time = (float)(encryptPass.elapsed + encryptUser.elapsed);
-                    ConsoleHelper.ColorWrite($"Elapsed {time} ms", ConsoleColor.Yellow);
+                    List < Benchmark<byte[]>> operations = new List<Benchmark<byte[]>>();
+
+                    byte[] _pass = encryptPass.returnValue;
+                    byte[] _user = encryptUser.returnValue;
+                    byte[] _notes = encryptNotes.returnValue;
 
 
-                    Password password = new Password(name, totalUser, total);
-                    pwds.Add(password);
-                    writePwds(pwds, "data.json"); //write to file
+                    
+                    encryptPass.DisplayBench();
+                    encryptUser.DisplayBench();
+                    encryptNotes.DisplayBench();
+                    Console.WriteLine();
+
+                    db.Add(new Password { Name = name, Username = _user, Pass = _pass, Notes = _notes });
+                    db.SaveChanges();
+
 
                 } catch (Exception e)
                 {
                     Console.WriteLine(e.ToString());
                 }
             }
+
+
             break;
         case 2: //READ A PASSWORD
             using (Aes aes = Aes.Create())
             {
-                List<Password> pwds = readPwds("data.json");
+                Password? password = null;
+                //search List 
+                while (password == null)
+                {
+                    ConsoleHelper.ColorWrite("Enter name of password:", ConsoleHelper.promptColor);
+                    string name = ConsoleHelper.ReadNotNull();
+                    password = db.Passwords.FirstOrDefault(x => x.Name == name);
 
-                pwds = readPwds("data.json");
-                
-                Console.WriteLine("Enter name of password:");
-                string? name = Console.ReadLine();
-                while (string.IsNullOrEmpty(name))
-                    name = Console.ReadLine();
-                Password password = new Password();
-
-
-                password = pwds.Find(x => x.name == name); //search List 
-
+                }
+                //decrypt
                 try
                 {
-                    Benchmark<byte[]> decryptOp = new Benchmark<byte[]>(CryptoHelper.Decrypt, aes, password.pwd, key);
-                    Benchmark<byte[]> decryptUserOp = new Benchmark<byte[]>(CryptoHelper.Decrypt, aes, password.user, key);
-                    byte[] decryptedPwd = decryptOp.returnValue;
-                    byte[] decryptedUser = decryptUserOp.returnValue;
 
-
-                    float time = (float)(decryptOp.elapsed + decryptUserOp.elapsed);
-                    ConsoleHelper.ColorWrite($"Elapsed {time} ms", ConsoleColor.Yellow);
-
-
-                    string plainPass = Encoding.UTF8.GetString(decryptedPwd); //decrypt password
-                    string plainUser = Encoding.UTF8.GetString(decryptedUser); //decrypt username
-
-                    Console.WriteLine($"User: {plainUser} ");
-                    Console.WriteLine($"Password: {plainPass}");
+                    Benchmark<byte[]> decrypt = new Benchmark<byte[]>(CryptoHelper.Decrypt, aes, password.Pass, key);
+                    Benchmark<byte[]> decryptUser = new Benchmark<byte[]>(CryptoHelper.Decrypt, aes, password.Username, key);
+                    Benchmark<byte[]> ?decryptNotes = new Benchmark<byte[]>(CryptoHelper.Decrypt, aes, password.Notes, key);
+                    byte[] _password = decrypt.returnValue;
+                    byte[] _user = decryptUser.returnValue;
+                    byte[]? _notes = decryptNotes.returnValue;
+                    Console.WriteLine();
+                    decrypt.DisplayBench();
+                    decryptUser.DisplayBench();
+                    string plainPass = Encoding.UTF8.GetString(_password); //decrypted password
+                    string plainUser = Encoding.UTF8.GetString(_user); //decrypted username
+                    string plainNotes = Encoding.UTF8.GetString(_notes);
+                    //display
+                    Console.WriteLine();
+                    ConsoleHelper.ColorWrite("Password Information:", ConsoleColor.Green);
+                    Console.Write($" > User: ");
+                    ConsoleHelper.ColorWrite(plainUser, ConsoleColor.Magenta);
+                    Console.Write($" > Password: "); 
+                    ConsoleHelper.ColorWrite(plainPass, ConsoleColor.Magenta);
+                    Console.Write($" > Password: ");
+                    ConsoleHelper.ColorWrite(plainNotes, ConsoleColor.Magenta);
+                    Console.WriteLine();
+ 
 
                 }
                 catch (Exception e)
@@ -218,23 +261,3 @@ while (input != options.Length)
             break;
     }
 }
-
-
-static List<Password> readPwds(string file)
-{
-    using (StreamReader r = new StreamReader(file))
-    {
-        string json = r.ReadToEnd();
-        return JsonSerializer.Deserialize<List<Password>>(json);
-    }
-}
-static void writePwds(List<Password> allPwds, string file)
-{
-    string json = JsonSerializer.Serialize(allPwds, new JsonSerializerOptions
-    {
-        WriteIndented = true
-    });
-
-    File.WriteAllText(file, json);
-}
- 

@@ -1,22 +1,50 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace pwd_mgr_csharp
+﻿namespace pwd_mgr_csharp
 {
     //class containing methods to help with displaying and parsing data in the console
     //created by me
 
-    public class ConsoleHelper 
+    public static class ConsoleHelper 
     {
-        public static int promptOptions(string prompt, string[] options)
+
+        public static ConsoleColor promptColor = ConsoleColor.Blue;
+        public static bool BoolPrompt()
         {
-            Console.WriteLine(prompt);
+            string input = ReadNotNull().ToLower();
+            bool val = false;
+            while (true)
+            {
+                if (input == "y")
+                {
+                    val = true;
+                    break;
+                } 
+                else if (input == "n")
+                {
+                    val = false;
+                    break;
+                }
+                else
+                {
+                    input = ReadNotNull().ToLower();
+                }
+            }
+            return val;
+        }
+
+        public static string ReadNotNull()
+        {
+            string val = Console.ReadLine();
+            while (string.IsNullOrEmpty(val))
+                val = Console.ReadLine();
+
+            return val;
+        }
+        public static int PromptOptions(string prompt, string[] options)
+        {
+            ColorWrite(prompt, promptColor);
             for (int i = 0; i < options.Length; i++)
             {
-                Console.WriteLine($"{i + 1}. {options[i]}");
+                Console.WriteLine($" > {i + 1}. {options[i]}");
             }
             string? input = Console.ReadLine();
             while (string.IsNullOrEmpty(input))
@@ -35,28 +63,28 @@ namespace pwd_mgr_csharp
             return parsed;
         }
 
-        public static string confirmedPwd()
+        public static string ConfirmedPwd()
         {
-            Console.WriteLine("Enter a password.");
-            string pwd = hiddenPassword();
+            ColorWrite("Enter a password.", promptColor);
+            string pwd = HiddenPassword();
 
-            Console.WriteLine("Confirm Password: (passwords must match)");
-            string confirm = hiddenPassword();
+            ColorWrite("Confirm Password: (passwords must match)", promptColor);
+            string confirm = HiddenPassword();
             //while loop to confirm the user's password
 
             while (pwd != confirm)
             {
-                Console.WriteLine("Enter a master password.");
-                pwd = hiddenPassword();
+                ColorWrite("Enter a master password.", promptColor);
+                pwd = HiddenPassword();
 
-                Console.WriteLine("Confirm Password: (passwords must match)");
-                confirm = hiddenPassword();
+                ColorWrite("Confirm Password: (passwords must match)", promptColor);
+                confirm = HiddenPassword();
             }
             return pwd;
         }
         //https://stackoverflow.com/questions/23433980/c-sharp-console-hide-the-input-from-console-window-while-typing
 
-        public static string hiddenPassword()
+        public static string HiddenPassword()
         {
             string password = "";
             while (true)
@@ -81,12 +109,18 @@ namespace pwd_mgr_csharp
             return password;
             
         }
-        public static void ColorWrite(string txt, ConsoleColor color, ConsoleColor bg = ConsoleColor.Black)
+        public static void ColorWrite(string txt, ConsoleColor color, bool newLine = true, ConsoleColor bg = ConsoleColor.Black)
         {
             Console.ForegroundColor = color;
             Console.BackgroundColor = bg;
 
-            Console.WriteLine(txt);
+            if (newLine == true)
+            {
+                Console.WriteLine(txt);
+            } else
+            {
+                Console.Write(txt);
+            }
 
             Console.ForegroundColor = ConsoleColor.White;
             Console.BackgroundColor = ConsoleColor.Black;
