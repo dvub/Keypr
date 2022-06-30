@@ -4,13 +4,11 @@ using System.Text;
 using Figgle;
 using System.Linq;
 using System.Diagnostics;
+//a small note: encoding/decoding is UTF8 as JSON spec is UTF8
 
 //EF Core:
 // * PMC: Add-Migration [migration name]
 // * Update-Database
-
-
-//a small note: encoding/decoding is UTF8 as JSON spec is UTF8
 
 //color coding:
 // green = good response
@@ -19,28 +17,26 @@ using System.Diagnostics;
 // Blue = information prompt
 
 
-
 // TODO: 
-// ***** REWRITE WITH SQLITE ***** - READ PASSWORDS
-// measure all operations instead of just some
+// XML DOCS - begun
+// json config - not yet implemented
+// sqlite - done
 // boolean prompt - DONE
-// cancel a new password creation
+// cancel a new password creation- 
 // all user input to lower case -
 // make sure password names are unique
 // make sure that app doesn't crash when user searches pwds - DONE
-// add notes section to password - CURRENT
-// ability to edit pwds 
+// add notes section to password - DONE
+// ability to edit pwds - DONE
 // make console look good - color, spacing, etc. - DONE for now
 // regenerate passwords - DONE
 // implement class exceptions
 
-
 Console.WriteLine(FiggleFonts.Slant.Render("KeyPr"));
 Console.WriteLine();
-Stopwatch sw = Stopwatch.StartNew();
 using var db = new PwdsContext(); // constructor with 0 args
 
-Console.WriteLine($"Database path: {db.DbPath}");
+ConsoleHelper.ColorWrite($"Database path: {db.DbPath}", ConsoleColor.Yellow);
 // initial query to get the master password - if one exists
 Password? master = db.Passwords.FirstOrDefault(x => x.Name == ".MASTER");
 
@@ -92,7 +88,7 @@ while (!loggedIn)
 
 // ONCE USER IS LOGGED IN: //
 int input = 0;
-string[] options = new string[3] { "Add new password", "View Password", "Exit", };
+string[] options = new string[4] { "Add new password", "View Password", "Edit Passowrd", "Exit", };
 while (input != options.Length)
 {
 
@@ -107,6 +103,11 @@ while (input != options.Length)
 
                 ConsoleHelper.ColorWrite("Enter name of website/application:", ConsoleHelper.promptColor); //get some user input
                 string name = ConsoleHelper.ReadNotNull();
+                while (name == ".MASTER")
+                {
+                    ConsoleHelper.ColorWrite("Reserved password name is not allowed. Try again:", ConsoleColor.Red);
+                    name = ConsoleHelper.ReadNotNull();
+                }
 
                 ConsoleHelper.ColorWrite("Enter username:", ConsoleHelper.promptColor);
                 string user = ConsoleHelper.ReadNotNull();
@@ -114,61 +115,8 @@ while (input != options.Length)
                 ConsoleHelper.ColorWrite("Add Notes:", ConsoleHelper.promptColor);
                 string? notes = Console.ReadLine();
 
-                string[] passOpts = new string[3] { "Generate Random (Recommended)", "Create one myself", "Cancel" };
-                int passInput = 0;
-                byte[] passBytes = new byte[] { };
-                bool prompting = true;
-
-                // allow the user to randomly generate a password - or create one themself
-                while (prompting)
-                {
-                    passInput = ConsoleHelper.PromptOptions("How would you like to create a password?", passOpts);
-                    switch (passInput)
-                    {
-                        case 1:
-                            int len = 0;
-                            ConsoleHelper.ColorWrite("Enter password length:", ConsoleHelper.promptColor);
-                            string passLength = ConsoleHelper.ReadNotNull();
-                            while (true)
-                            {
-                                try
-                                {
-                                    len = int.Parse(passLength);
-                                    break;
-                                } 
-                                catch
-                                {
-                                    ConsoleHelper.ColorWrite("Input a valid number:", ConsoleColor.Red);
-                                }
-                            }
-
-                            bool regen = true;
-                            while (regen)
-                            {
-                                string basePass = CryptoHelper.GeneratePassword(len);
-                                passBytes = Encoding.UTF8.GetBytes(basePass);
-                                Console.WriteLine();
-                                ConsoleHelper.ColorWrite($"Generated a new Password!", ConsoleColor.Green);
-                                Console.WriteLine();
-                                Console.WriteLine("The password is: ");
-                                ConsoleHelper.ColorWrite(basePass, ConsoleColor.Magenta);
-                                Console.WriteLine();
-                                ConsoleHelper.ColorWrite("Would you like to regenerate the password? (y/n)", ConsoleHelper.promptColor);
-                                regen = ConsoleHelper.BoolPrompt();
-                            }
-
-                            prompting = false;
-                            break;
-                        case 2:
-                            passBytes = Encoding.UTF8.GetBytes(ConsoleHelper.ConfirmedPwd());
-                            prompting = false;
-                            break;
-                        case 3:
-                            prompting = false;
-                            break;
-                    }
-                }
                 //end of user input, lets encrypt
+                byte[] passBytes = ConsoleHelper.PwdGenPrompt();
                 byte[] userBytes = Encoding.UTF8.GetBytes(user);
                 byte[] notesBytes = Encoding.UTF8.GetBytes(notes);
 
@@ -182,18 +130,17 @@ while (input != options.Length)
                     Benchmark<byte[]> encryptPass = new Benchmark<byte[]>(CryptoHelper.Encrypt, aes, passBytes, aes.IV, key);
                     Benchmark<byte[]> encryptUser = new Benchmark<byte[]>(CryptoHelper.Encrypt, aes, userBytes, aes.IV, key);
                     Benchmark<byte[]> encryptNotes = new Benchmark<byte[]>(CryptoHelper.Encrypt, aes, notesBytes, aes.IV, key);
-
-                    List < Benchmark<byte[]>> operations = new List<Benchmark<byte[]>>();
+                    List<Benchmark<byte[]>> operations = new List<Benchmark<byte[]>>() { encryptNotes, encryptPass, encryptUser };
+                    double time = 0;
+                    operations.ForEach(x =>
+                    {
+                        time += x.elapsed;
+                    });
+                    ConsoleHelper.ColorWrite($"Elapsed {time} ms. (encryption)", ConsoleColor.Yellow);
 
                     byte[] _pass = encryptPass.returnValue;
                     byte[] _user = encryptUser.returnValue;
                     byte[] _notes = encryptNotes.returnValue;
-
-
-                    
-                    encryptPass.DisplayBench();
-                    encryptUser.DisplayBench();
-                    encryptNotes.DisplayBench();
                     Console.WriteLine();
 
                     db.Add(new Password { Name = name, Username = _user, Pass = _pass, Notes = _notes });
@@ -216,8 +163,9 @@ while (input != options.Length)
                 while (password == null)
                 {
                     ConsoleHelper.ColorWrite("Enter name of password:", ConsoleHelper.promptColor);
-                    string name = ConsoleHelper.ReadNotNull();
-                    password = db.Passwords.FirstOrDefault(x => x.Name == name);
+                    string findName = ConsoleHelper.ReadNotNull();
+
+                    password = db.Passwords.FirstOrDefault(x => x.Name == findName);
 
                 }
                 //decrypt
@@ -231,8 +179,15 @@ while (input != options.Length)
                     byte[] _user = decryptUser.returnValue;
                     byte[]? _notes = decryptNotes.returnValue;
                     Console.WriteLine();
-                    decrypt.DisplayBench();
-                    decryptUser.DisplayBench();
+                    List<Benchmark<byte[]>> operations = new List<Benchmark<byte[]>>() { decrypt, decryptNotes, decryptUser };
+                    double time = 0;
+                    operations.ForEach(x =>
+                    {
+                        time += x.elapsed;
+                    });
+                    ConsoleHelper.ColorWrite($"Elapsed {time} ms. (decryption)", ConsoleColor.Yellow);
+
+
                     string plainPass = Encoding.UTF8.GetString(_password); //decrypted password
                     string plainUser = Encoding.UTF8.GetString(_user); //decrypted username
                     string plainNotes = Encoding.UTF8.GetString(_notes);
@@ -243,7 +198,7 @@ while (input != options.Length)
                     ConsoleHelper.ColorWrite(plainUser, ConsoleColor.Magenta);
                     Console.Write($" > Password: "); 
                     ConsoleHelper.ColorWrite(plainPass, ConsoleColor.Magenta);
-                    Console.Write($" > Password: ");
+                    Console.Write($" > Notes: ");
                     ConsoleHelper.ColorWrite(plainNotes, ConsoleColor.Magenta);
                     Console.WriteLine();
  
@@ -253,10 +208,64 @@ while (input != options.Length)
                 {
                     Console.WriteLine(e.ToString());
                 }
-
             }
             break;
-        case 3: //exit the app
+        case 3: // EDIT A PASSWORD
+            Password? editPwd = null;
+            //search List 
+            while (editPwd == null)
+            {
+                ConsoleHelper.ColorWrite("Enter name of password:", ConsoleHelper.promptColor);
+                string findName = ConsoleHelper.ReadNotNull();
+
+                editPwd = db.Passwords.FirstOrDefault(x => x.Name == findName);
+
+            }
+            ConsoleHelper.ColorWrite("Leave any field blank if you do not wish to edit it.", ConsoleColor.White);
+            ConsoleHelper.ColorWrite("Edit Name:", ConsoleHelper.promptColor);
+            string? newName = Console.ReadLine();
+
+            ConsoleHelper.ColorWrite("Edit User:", ConsoleHelper.promptColor);
+            string? newUser = Console.ReadLine();
+
+            ConsoleHelper.ColorWrite("Would you like to edit password? (y/n)", ConsoleHelper.promptColor);
+            bool isEditingPwd = ConsoleHelper.BoolPrompt();
+            byte[]? newPassBytes = null;
+            if (isEditingPwd == true)
+                newPassBytes = ConsoleHelper.PwdGenPrompt();
+
+            ConsoleHelper.ColorWrite("Edit Notes:", ConsoleHelper.promptColor);
+            string? newNotes = Console.ReadLine();
+
+            Stopwatch sw = Stopwatch.StartNew();
+
+            using (Aes aes = Aes.Create())
+            {
+                byte[] newUserBytes = CryptoHelper.Encrypt(aes, Encoding.UTF8.GetBytes(newUser), aes.IV, key);
+                byte[] encryptPassBytes = CryptoHelper.Encrypt(aes, newPassBytes, aes.IV, key);
+                byte[] newNotesBytes = CryptoHelper.Encrypt(aes, Encoding.UTF8.GetBytes(newNotes), aes.IV, key);
+
+
+                if (!string.IsNullOrWhiteSpace(newName))
+                    editPwd.Name = newName;
+                
+                if (!string.IsNullOrWhiteSpace(newUser))
+                    editPwd.Username = newUserBytes;
+
+                if (newPassBytes != null)
+                    editPwd.Pass = encryptPassBytes;
+
+                if (!string.IsNullOrEmpty(newNotes))
+                    editPwd.Notes = newNotesBytes;
+
+            }
+
+            db.SaveChanges();
+            sw.Stop();
+            ConsoleHelper.ColorWrite($"Elapsed {sw.Elapsed.TotalMilliseconds} ms. (edit)", ConsoleColor.Yellow);
+
+            break;
+        case 4: //exit the app
             Environment.Exit(0);
             break;
     }

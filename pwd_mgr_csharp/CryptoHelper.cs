@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 
 namespace pwd_mgr_csharp
 {
+
     public static class CryptoHelper
     {
         public static string GeneratePassword(int length)
